@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Creates the environment smart_grids
 virtualenv -p python3 smart_grids
 
