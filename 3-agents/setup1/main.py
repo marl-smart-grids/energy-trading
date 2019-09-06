@@ -46,6 +46,18 @@ battery_logger = setup_logger('battery_logger','./logs/battery_logger.txt')
 nd_logger = setup_logger('nd_logger','./logs/nd_logger.txt')
 transmission_logger = setup_logger('transmission_logger','./logs/transmission_logger.txt')
 
+
+
+
+
+# Simulates transaction between the agents given their actions. It returns the rewards from trading for each agent given the actions. In this function first we divide
+# the grids into buyers and sellers. Buyers are collected into a single pool. They are than matched with sellers in ascending order of their price quoted. If a seller
+# is not able to fullfill the demand of the pool of buyers, than the pool moves to the next seller which again tries to satisfy the demand of the pool. If the amount to be sold is
+# more than the amount to be bought, the excess electricity is sold to the main grid at Grid_Price - 5. If amount to be bought is more than  than 
+# amount to be sold the excess is bought from the main grid at Grid_Price. The cost incurred by each buyer is in proportion of the amount demanded 
+# times the total spending by the buyers pool. Buyers receive a negative reward while sellers receive a positive reward.  If the seller is quoting a lower price, 
+# than there is a higher probability that his or her electricity will be bought by the pool of buyers.
+
 def transaction(actions):
 
     # we will divide the agents as buyers and sellers
@@ -146,7 +158,7 @@ def transaction(actions):
 
     return(rewards)
 
-
+# constants
 state_size = 5
 max_battery = 12
 max_energy_generated = 12
@@ -155,13 +167,17 @@ min_non_adl = 3
 max_non_adl = 6 
 grid_price = 20
 
+# penalty for not satisfying a demand
 c_values = [10,20,30]
 c = c_values[2]
 
+# number of iterations
 total_iterations = 1200000
 num_of_agents = 3
-lamb = [[2.667e-07, 0.541, 6.5965, 4.3712],[8.8281, 10.2997, 9.8301, 9.7514],[8.8281, 10.2997, 9.8301, 9.7514]] # guess we have to put the lambda values
 
+# lambda value for the poisson distribution of each micro grid for each time period of the day
+lamb = [[2.667e-07, 0.541, 6.5965, 4.3712],[8.8281, 10.2997, 9.8301, 9.7514],[8.8281, 10.2997, 9.8301, 9.7514]] 
+## Initialise the agents 
 agents = []
 names = ['g1','g2','g3']
 for i in range(num_of_agents-1):
@@ -190,7 +206,7 @@ for i in range(num_of_agents):
 
 adl_actions = []
 adl_values = []
-
+# Take the initial adl actions using epsilon greedy 
 for i in range(num_of_agents):
 	act = agents[i].adl_action(states_adl[i])
 	adl_actions.append(act)
@@ -199,11 +215,12 @@ for i in range(num_of_agents):
 for i in range(num_of_agents):
 	states_price.append([states_adl[i][0], states_adl[i][1], adl_actions[i], states_adl[i][3], states_adl[i][4]])
 
-
+# The main loop for the total number of iterations
 for Iter in range(total_iterations):
 	
 	pricing_actions = []
 	pricing_values = []
+    # take the pricing action using epsilon greedy policy 
 	for i in range(num_of_agents):
 		act = agents[i].pricing_action(states_price[i])
 		pricing_actions.append(act)
@@ -216,11 +233,11 @@ for Iter in range(total_iterations):
 	price_logger.info("{} {} {}".format(pricing_values[0][1],pricing_values[1][1],pricing_values[2][1]))
 	nd_logger.info("{} {} {}".format(states_price[0][0],states_price[1][0],states_price[2][0]))
 
-
+# Rewards from trading given the actions
 	rewards = transaction(pricing_values)
 
 
-
+    # Rewards for not satisfying the non ADL demands and updation of the battery of each microgrid
 	for i in range(num_of_agents):
 		if (states_price[i][0] -adl_values[i]- pricing_values[i][2] < 0):
 			rewards[i] += c * (states_price[i][0] -adl_values[i]- pricing_values[i][2])
@@ -230,7 +247,7 @@ for Iter in range(total_iterations):
 			battery[i] = min(battery[i], max_battery)
 		
 	adl_states =[]
-
+    # Rewards for not satisfying the ADL demands and updation of the ADL state
 	for i in range(num_of_agents):
 		penalty, updated_adl_state = agents[i].update_adl(adl_actions[i], states_adl[i][3])
 		rewards[i] += c * -1 * penalty
@@ -240,7 +257,7 @@ for Iter in range(total_iterations):
 
 
 	temp_states_adl = []
-
+    # Get the next state of the Microgrid, stores the state 
 	for i in range(num_of_agents):
 		renewable[i] = agents[i].get_renewable((Iter+ 1)%4 + 1)
 		temp = agents[i].get_non_adl_demand((Iter+1)%4 + 1)
@@ -249,6 +266,7 @@ for Iter in range(total_iterations):
 	temp_adl_actions = []
 	temp_adl_values = [] 
 	temp_states_price = []
+    # Take the ADL action using epsilon greedy policy; to be used in the next iteration. Store it in temp_adl_action. At the end of the main loop we will make adl_action = temp_adl_action
 
 	for i in range(num_of_agents):
 		act = agents[i].adl_action(temp_states_adl[i])
@@ -258,11 +276,17 @@ for Iter in range(total_iterations):
 	for i in range(num_of_agents):
 		temp_states_price.append([temp_states_adl[i][0], temp_states_adl[i][1], temp_adl_actions[i], temp_states_adl[i][3], temp_states_adl[i][4]])
 
+
+
+    # Store it in replay buffer.  states_adl holds the current state for the ADL network, states_price holds the current state for the price network
+    # adl_actions, pricing_actions stores the actions for the ADL network and Pricing network. temp_states_adl and temp_states_price holds the next state 
+    # for the ADL Network and the Pricing Network.
+
 	for i in range(num_of_agents):
 		agents[i].remember(states_adl[i], states_price[i], adl_actions[i], pricing_actions[i], rewards[i] , temp_states_adl[i], temp_states_price[i])
 
 
-
+    # Sample a mini batch and train 
 	if (Iter+1)%4 == 0:
 		loss = [(0,0),(0,0),(0,0)]
 		for i in range(num_of_agents):
