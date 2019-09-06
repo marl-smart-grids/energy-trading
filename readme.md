@@ -23,7 +23,7 @@ Make sure you have **virtualenv** package installed. Check [this](https://gist.g
     - main.py ( contanins all the code to run the experiment)
     - DQN_agent.py (contains classes and functions for the agents)
     - analysis notebook (analysis of all the results)
-- Create two folders logs and saved where all the results of the experiments and the trained models will be saved
+- Create two folders, logs and saved, where all the results of the experiments and the trained models will be saved
 - In the terminal type the following to run the code:
 ~~~
 python main.py
