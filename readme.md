@@ -29,4 +29,4 @@ Make sure you have **virtualenv** package installed. Check [this](https://gist.g
 python main.py
 ~~~
 - All the results will be stored in the 'logs' folder and all the trained models will be stored in the 'saved' folder.
-- **All the logs and saved models for all the experiments that we have performed can be found in this [link](https://drive.google.com/open?id=1HFCvPiJ6llfMvZfTlDOlref2URTrNOSv)**
+- **All the logs and saved models for all the experiments that we have performed can be found in this [link](https://drive.google.com/open?id=1HFCvPiJ6llfMvZfTlDOlref2URTrNOSv)**.
